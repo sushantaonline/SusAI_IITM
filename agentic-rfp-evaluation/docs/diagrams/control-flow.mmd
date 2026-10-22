@@ -1,0 +1,22 @@
+flowchart TD
+    A([Start]) --> B[Load criteria and configuration]
+    B --> C{Weights equal 100%?}
+    C -- No --> X[Show error]
+    C -- Yes --> D[Select supplier PDFs]
+    D --> E{At least one selected?}
+    E -- No --> Y[Request selection]
+    E -- Yes --> F[Extract PDF text]
+    F --> G[Retrieve evidence from ChromaDB]
+    G --> H[Call OpenRouter]
+    H --> I[Validate structured output]
+    I --> J{Valid response?}
+    J -- No --> K[Report error / bounded retry]
+    J -- Yes --> L[Calculate weighted score]
+    K --> M{More suppliers?}
+    L --> M
+    M -- Yes --> F
+    M -- No --> N[Rank and persist results]
+    N --> O[Render dashboard and export]
+    X --> P([End])
+    Y --> P
+    O --> P

@@ -1,0 +1,13 @@
+flowchart TB
+    PDF[Selected proposal PDFs] --> EXT[Extract page text]
+    EXT --> CHUNK[Chunk text and preserve metadata]
+    CHUNK --> EMBED[Create local embeddings]
+    EMBED --> CHROMA[(ChromaDB)]
+    CRIT[(SQLite criteria)] --> QUERY[Build criterion retrieval queries]
+    CHROMA --> QUERY
+    QUERY --> EVID[Retrieved evidence chunks]
+    EVID --> API[OpenRouter LLM]
+    API --> VALID[Validate evaluation JSON]
+    VALID --> SCORE[Calculate weighted score and rank]
+    SCORE --> DB[(SQLite results)]
+    SCORE --> OUT[Dashboard / JSON export]

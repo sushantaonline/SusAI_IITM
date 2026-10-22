@@ -1,0 +1,15 @@
+flowchart TB
+    U[Procurement user] --> UI[Streamlit UI]
+    UI --> APP[Python orchestration]
+    APP --> PDF[PyMuPDF extraction]
+    APP --> EVAL[Supplier evaluator]
+    EVAL --> RAG[RAG retrieval]
+    RAG --> EMB[Sentence Transformers]
+    RAG --> VDB[(ChromaDB)]
+    EVAL --> LLM[OpenRouter API]
+    EVAL --> VAL[Pydantic validation]
+    VAL --> SCORE[Python scoring and ranking]
+    SCORE --> DB[(SQLite)]
+    SCORE --> UI
+    SPLIT[LangChain text splitter] --> EMB
+    SPLIT --> VDB
