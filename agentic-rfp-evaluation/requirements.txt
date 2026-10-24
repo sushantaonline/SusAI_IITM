@@ -1,4 +1,6 @@
 streamlit
 pymupdf
 pydantic
+chromadb
+sentence-transformers
 pytest
