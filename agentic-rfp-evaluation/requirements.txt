@@ -4,3 +4,5 @@ pydantic
 chromadb
 sentence-transformers
 pytest
+plotly
+langchain-text-splitters
