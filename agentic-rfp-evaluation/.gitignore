@@ -21,7 +21,7 @@ data/rfp_evaluation.db
 
 # Local inputs: review synthetic samples before publishing
 # data/input/ is ignored by default; selectively publish approved synthetic examples elsewhere.
-data/input/
+#data/input/
 
 # IDE and OS
 .vscode/
