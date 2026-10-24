@@ -4,3 +4,4 @@ pydantic
 chromadb
 sentence-transformers
 pytest
+plotly
