@@ -1,13 +1,33 @@
-
 import json
 import os
+import subprocess
+import sys
 import uuid
 from datetime import datetime
+from pathlib import Path
 
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.rfp_evaluator.config import DB_PATH, INPUT_DIR, OPENROUTER_MODEL
+# Streamlit Community Cloud stores secrets in st.secrets. Populate the
+# environment before importing config.py/evaluator.py, which read env vars
+# during module import. Local environment variables remain supported.
+try:
+    if "OPENROUTER_API_KEY" in st.secrets:
+        os.environ["OPENROUTER_API_KEY"] = str(st.secrets["OPENROUTER_API_KEY"])
+    if "OPENROUTER_MODEL" in st.secrets:
+        os.environ["OPENROUTER_MODEL"] = str(st.secrets["OPENROUTER_MODEL"])
+except Exception:
+    # Local runs without a Streamlit secrets file can use environment variables.
+    pass
+
+from src.rfp_evaluator.config import (
+    DB_PATH,
+    INPUT_DIR,
+    OPENROUTER_API_KEY,
+    OPENROUTER_MODEL,
+    PROJECT_ROOT,
+)
 from src.rfp_evaluator.database import (
     initialize_database,
     get_connection,
@@ -22,6 +42,65 @@ from src.rfp_evaluator.scoring import (
 )
 
 
+def ensure_chroma_index():
+    """Build the proposal vector index if it is missing or empty."""
+    import chromadb
+
+    chroma_dir = PROJECT_ROOT / "data" / "chroma_db"
+    client = chromadb.PersistentClient(path=str(chroma_dir))
+    collection_names = {
+        collection.name for collection in client.list_collections()
+    }
+
+    if "supplier_proposals" in collection_names:
+        collection = client.get_collection("supplier_proposals")
+        if collection.count() > 0:
+            return
+
+    pdf_files = sorted(INPUT_DIR.glob("*.pdf"))
+    if not pdf_files:
+        st.error(f"No supplier PDFs found in {INPUT_DIR}")
+        st.stop()
+
+    build_script = PROJECT_ROOT / "build_vector_store.py"
+    if not build_script.is_file():
+        st.error(f"Vector index build script not found: {build_script}")
+        st.stop()
+
+    with st.spinner(
+        f"Initializing supplier search index from {len(pdf_files)} PDFs. "
+        "The first startup may take several minutes..."
+    ):
+        result = subprocess.run(
+            [sys.executable, str(build_script)],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+        )
+
+    if result.returncode != 0:
+        st.error("Failed to build the ChromaDB index.")
+        st.code(result.stderr or result.stdout or "No build output was returned.")
+        st.stop()
+
+    # Confirm that the build produced a usable collection.
+    client = chromadb.PersistentClient(path=str(chroma_dir))
+    if "supplier_proposals" not in {
+        collection.name for collection in client.list_collections()
+    }:
+        st.error("Index build finished, but supplier_proposals was not created.")
+        st.code(result.stdout or "No build output was returned.")
+        st.stop()
+
+    collection = client.get_collection("supplier_proposals")
+    if collection.count() == 0:
+        st.error("The supplier proposal index contains no vectors.")
+        st.code(result.stdout or "No build output was returned.")
+        st.stop()
+
+    st.success(f"Supplier search index ready: {collection.count()} chunks.")
+
+
 # ============================================================
 # 1. PAGE CONFIGURATION
 # Streamlit reruns this script whenever a user interacts with
@@ -33,6 +112,10 @@ st.set_page_config(
     page_icon="📊",
     layout="wide",
 )
+
+# The PDFs are committed to the repository; build the generated Chroma index
+# on first cloud startup when it is not already available.
+ensure_chroma_index()
 
 st.title("🏦 AI Procurement Intelligence")
 st.caption(
@@ -56,7 +139,7 @@ with st.sidebar:
 
     st.write(
         "**API key:** Configured"
-        if os.getenv("OPENROUTER_API_KEY")
+        if OPENROUTER_API_KEY
         else "**API key:** Missing"
     )
 
