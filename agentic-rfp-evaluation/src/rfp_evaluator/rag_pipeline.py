@@ -10,11 +10,11 @@ Responsibilities:
 
 from pathlib import Path
 
-import chromadb
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 
 from src.rfp_evaluator.config import DATA_DIR
+from src.rfp_evaluator.chroma_client import get_chroma_client
 
 
 # Use the same model and collection as the vector index builder.
@@ -133,7 +133,7 @@ def _get_chroma_collection():
                 "Run python build_vector_store.py first."
             )
 
-        client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+        client = get_chroma_client()
 
         try:
             _chroma_collection = client.get_collection(COLLECTION_NAME)

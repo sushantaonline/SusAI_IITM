@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 import sys
 import uuid
 from datetime import datetime
@@ -51,11 +50,16 @@ from src.rfp_evaluator.scoring import (
 
 
 def ensure_chroma_index():
-    """Build the proposal vector index if it is missing or empty."""
-    import chromadb
+    """Ensure the local supplier-proposal index exists and contains vectors."""
+    from src.rfp_evaluator.chroma_client import get_chroma_client
 
-    chroma_dir = PROJECT_ROOT / "data" / "chroma_db"
-    client = chromadb.PersistentClient(path=str(chroma_dir))
+    try:
+        client = get_chroma_client()
+    except Exception as exc:
+        st.error("Could not initialize the ChromaDB persistent client.")
+        st.exception(exc)
+        st.stop()
+
     collection_names = {
         collection.name for collection in client.list_collections()
     }
@@ -75,35 +79,31 @@ def ensure_chroma_index():
         st.error(f"Vector index build script not found: {build_script}")
         st.stop()
 
+    # Build with the existing client in this process. Do not start a subprocess
+    # that opens the same persistent database while this app has it open.
+    from build_vector_store import build_vector_store
+
     with st.spinner(
         f"Initializing supplier search index from {len(pdf_files)} PDFs. "
         "The first startup may take several minutes..."
     ):
-        result = subprocess.run(
-            [sys.executable, str(build_script)],
-            cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-        )
+        try:
+            build_vector_store(client=client)
+        except Exception as exc:
+            st.error("Failed to build the ChromaDB index.")
+            st.exception(exc)
+            st.stop()
 
-    if result.returncode != 0:
-        st.error("Failed to build the ChromaDB index.")
-        st.code(result.stderr or result.stdout or "No build output was returned.")
-        st.stop()
-
-    # Confirm that the build produced a usable collection.
-    client = chromadb.PersistentClient(path=str(chroma_dir))
-    if "supplier_proposals" not in {
+    collection_names = {
         collection.name for collection in client.list_collections()
-    }:
+    }
+    if "supplier_proposals" not in collection_names:
         st.error("Index build finished, but supplier_proposals was not created.")
-        st.code(result.stdout or "No build output was returned.")
         st.stop()
 
     collection = client.get_collection("supplier_proposals")
     if collection.count() == 0:
         st.error("The supplier proposal index contains no vectors.")
-        st.code(result.stdout or "No build output was returned.")
         st.stop()
 
     st.success(f"Supplier search index ready: {collection.count()} chunks.")

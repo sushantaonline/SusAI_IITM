@@ -10,12 +10,12 @@ Workflow:
 5. Store chunks and vectors in Chroma.
 """
 
-import chromadb
 import pymupdf
 from sentence_transformers import SentenceTransformer
 
 from src.rfp_evaluator.config import DATA_DIR, INPUT_DIR
 from src.rfp_evaluator.rag_pipeline import chunk_pages
+from src.rfp_evaluator.chroma_client import get_chroma_client
 
 
 # Local directory for persistent vector storage.
@@ -28,12 +28,15 @@ COLLECTION_NAME = "supplier_proposals"
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 
-def main():
+def build_vector_store(client=None):
+    """Build/rebuild the proposal index, optionally using an existing client."""
+
     # Load the embedding model from the local Hugging Face cache.
     model = SentenceTransformer(MODEL_NAME)
 
-    # Open or initialize the persistent Chroma database.
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+    # Reuse the app client when called by Streamlit; otherwise use the shared one.
+    if client is None:
+        client = get_chroma_client()
 
     # Delete the previous collection only if it exists.
     existing_collections = [
@@ -127,6 +130,11 @@ def main():
     print("Chunks generated:", total_chunks)
     print("Vectors stored:", collection.count())
     print("Chroma directory:", CHROMA_DIR)
+    return collection
+
+
+def main():
+    build_vector_store()
 
 
 if __name__ == "__main__":
