@@ -6,3 +6,4 @@ sentence-transformers
 pytest
 plotly
 langchain-text-splitters
+torchvision
