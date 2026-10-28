@@ -9,6 +9,14 @@ from pathlib import Path
 import plotly.graph_objects as go
 import streamlit as st
 
+if sys.version_info[:2] != (3, 12):
+    st.error(
+        f"Python 3.12 is required. "
+        f"Current version: {sys.version}"
+    )
+    st.stop()
+
+
 # Streamlit Community Cloud stores secrets in st.secrets. Populate the
 # environment before importing config.py/evaluator.py, which read env vars
 # during module import. Local environment variables remain supported.
